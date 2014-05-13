@@ -120,6 +120,7 @@ void tinyco_exit(struct tinyco_t *context,int exitCode)
 	context->release(context->current_context);
 	context->context_count--;
 
+	context->current_context = next;
 	tinyco_context_swap(&next->context,NULL);
 }
 
