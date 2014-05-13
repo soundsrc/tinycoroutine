@@ -8,41 +8,37 @@ TinyCoroutine provides a high-level and low level API. The high level API provid
 High Level API
 --------------
 
-void tinyco_init(struct tinyco_t *context,tinyco_alloc_func_t alloc,tinyco_free_func_t release);
+	void tinyco_init(struct tinyco_t *context,tinyco_alloc_func_t alloc,tinyco_free_func_t release);
 
-	Initializes tinycoroutine context.
+Initializes tinycoroutine context.
 
-void tinyco_spawn(struct tinyco_t *context,tinyco_func_t entry,void *param,void *stack,size_t stack_size);
+	void tinyco_spawn(struct tinyco_t *context,tinyco_func_t entry,void *param,void *stack,size_t stack_size);
 
-	Schedules the function entry(param) with stack to be executed.
+Schedules the function entry(param) with stack to be executed.
 
-void tinyco_exec(struct tinyco_t *context);
+	void tinyco_exec(struct tinyco_t *context);
 
-	Switches to the next coroutine and returns only when all coroutines have compeleted.
+Switches to the next coroutine and returns only when all coroutines have completed. This is equaivalent to calling tinyco_yield() in an loop.
 
-int tinyco_resume(struct tinyco_t *context);
+	void tinyco_yield(struct tinyco_t *context);
 
-	Switches to the next coroutine and returns once the last coroutine has yielded / terminated.
+Saves the current execution and switches to the next coroutine.
 
-void tinyco_yield(struct tinyco_t *context);
+	void tinyco_exit(struct tinyco_t *context,int exitCode);
 
-	Switches to the next coroutine.
-
-void tinyco_exit(struct tinyco_t *context,int exitCode);
-
-	Terminates the current coroutine.
+Terminates the current coroutine.
 
 Low Level API
 -------------
 
-void tinyco_context_create(struct tinyco_context_t *coro,tinyco_func_t entry,void *param,void *stack,size_t stack_size,struct tinyco_context_t *ret);
+	void tinyco_context_create(struct tinyco_context_t *coro,tinyco_func_t entry,void *param,void *stack,size_t stack_size,struct tinyco_context_t *ret);
 
-	Initializes a execution context with execution starting at function entry(param) and stack.
+Initializes a execution context with execution starting at function entry(param) and stack.
 
-void tinyco_context_get(struct tinyco_context_t *coro);
+	void tinyco_context_get(struct tinyco_context_t *coro);
 
-	Initializes a execution context saving the current execution state.
+Initializes a execution context saving the current execution state.
 
-void tinyco_context_swap(struct tinyco_context_t *coro,struct tinyco_context_t *prev);
+	void tinyco_context_swap(struct tinyco_context_t *coro,struct tinyco_context_t *prev);
 
-	Switches to the execution context coro while saving the current context to prev.
+Switches to the execution context coro while saving the current context to prev.
