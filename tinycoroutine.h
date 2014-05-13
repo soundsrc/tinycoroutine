@@ -82,16 +82,11 @@ void tinyco_spawn(struct tinyco_t *context,tinyco_func_t entry,void *param,void 
 void tinyco_exec(struct tinyco_t *context);
 
 /**
- * Switches to the next availble coroutine. Function returns after the last coroutines yields.
- * @param context tinyco_t context
- */
-int tinyco_resume(struct tinyco_t *context);
-
-/**
  * Saves the current execution state to the current coroutine and switches to the next available coroutine.
  * @param context tinyco_t context
+ * @return Returns the number of running coroutines.
  */
-void tinyco_yield(struct tinyco_t *context);
+int tinyco_yield(struct tinyco_t *context);
 
 /**
  * Terminates the current coroutine and removes it from execution.

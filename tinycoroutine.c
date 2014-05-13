@@ -85,27 +85,17 @@ void tinyco_spawn(struct tinyco_t *context,tinyco_func_t entry,void *param,void 
 
 void tinyco_exec(struct tinyco_t *context)
 {
-	while(tinyco_resume(context) != 0);
+	while(tinyco_yield(context) != 0);
 }
 
-int tinyco_resume(struct tinyco_t *context)
-{
-	// swap into the context
-	if(context->current_context == &context->context_root)
-	{
-		context->current_context = context->current_context->next;
-	}
-
-	tinyco_context_swap(&context->current_context->context,&context->context_root.context);
-	return context->context_count;
-}
-
-void tinyco_yield(struct tinyco_t *context)
+int tinyco_yield(struct tinyco_t *context)
 {
 	struct tinyco_context_list_t *prev_context = context->current_context;
 	context->current_context = context->current_context->next;
 
 	tinyco_context_swap(&context->current_context->context,&prev_context->context);
+
+	return context->context_count;
 }
 
 void tinyco_exit(struct tinyco_t *context,int exitCode)
