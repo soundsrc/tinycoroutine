@@ -29,9 +29,10 @@
 #define DEF_FUNC_NO_INLINE(ret,name,params) ret name params
 #endif
 
+#if defined(__APPLE__) || defined(__linux__)
 #define setjmp _setjmp
 #define longjmp _longjmp
-
+#endif
 
 void tinyco_init(struct tinyco_t *context,tinyco_alloc_func_t alloc,tinyco_free_func_t release)
 {
@@ -72,7 +73,7 @@ static void tinyco_spawn_func(struct tinyco_spawn_data_t *data)
 
 void tinyco_spawn(struct tinyco_t *context,tinyco_func_t entry,void *param,void *stack,size_t stack_size)
 {
-	struct tinyco_context_list_t *ctx = context->alloc(sizeof(struct tinyco_context_list_t));
+	struct tinyco_context_list_t *ctx = (struct tinyco_context_list_t *)context->alloc(sizeof(struct tinyco_context_list_t));
 	struct tinyco_spawn_data_t data;
 
 	data.context = context;
@@ -111,11 +112,13 @@ int tinyco_yield(struct tinyco_t *context)
 
 void tinyco_exit(struct tinyco_t *context,int exitCode)
 {
+	struct tinyco_context_list_t *next;
+
 	// unlink list
 	context->current_context->prev->next = context->current_context->next;
 	context->current_context->next->prev = context->current_context->prev;
 
-	struct tinyco_context_list_t *next = context->current_context->next;
+	next = context->current_context->next;
 
 	context->release(context->current_context);
 	context->context_count--;
@@ -142,13 +145,18 @@ DEF_FUNC_NO_INLINE(static void,tinyco_entry,(struct tinyco_context_t *coro))
 DEF_FUNC_NO_INLINE(static int,tinyco_get_stack_ptr_in_jmp_buf, (jmp_buf *lo_buf))
 {
 	size_t local = (size_t)&local;
+	size_t n;
 	jmp_buf hi_buf;
+	volatile size_t *lo_ptr, *hi_ptr;
+	int i;
+
 	setjmp(hi_buf);
 
 	/* attempt to determine which offset in the jmp_buf stores the stack pointer */
-	size_t n = sizeof(jmp_buf) / sizeof(size_t);
-	volatile size_t *lo_ptr = (size_t *)*lo_buf, *hi_ptr = (size_t *)hi_buf;
-	for(int i = 0; i < n; ++i) {
+	n = sizeof(jmp_buf) / sizeof(size_t);
+	lo_ptr = (size_t *)*lo_buf;
+	hi_ptr = (size_t *)hi_buf;
+	for(i = 0; i < n; ++i) {
 		if(hi_ptr[i] <= local && local <= lo_ptr[i] && (lo_ptr[i] - hi_ptr[i]) < 1024) {
 			return i;
 		}
@@ -176,7 +184,14 @@ static int tinyco_get_stack_dir()
  */
 static void tinyco_swap_stack_and_call(void *stack,void (*entry)(struct tinyco_context_t *),struct tinyco_context_t *coro)
 {
-#if defined(__GNUC__) && defined(__x86_64__)
+#if defined(_MSC_VER) && defined(_M_IX86)
+	__asm {
+		mov esp, stack
+		and esp, -16
+		push coro
+		call entry
+	}
+#elif defined(__GNUC__) && defined(__x86_64__)
 	/* x64 GNU C */
 	__asm__ __volatile__ (
 		"movq %0, %%rsp\n"   /* replace stack pointer */
@@ -247,7 +262,7 @@ void tinyco_context_create(struct tinyco_context_t *coro,tinyco_func_t entry,voi
 	coro->ret = ret;
 
 	if(setjmp(coro->ctxt) == 0) {
-		char *stackBase = tinyco_get_stack_dir() < 0 ? stack + stack_size : stack;
+		char *stackBase = tinyco_get_stack_dir() < 0 ? (char *)stack + stack_size : (char *)stack;
 		tinyco_swap_stack_and_call(stackBase,tinyco_entry,coro);
 		/* not expected to return here */
 	}

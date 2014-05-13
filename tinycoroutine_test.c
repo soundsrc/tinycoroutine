@@ -18,9 +18,9 @@
 
 struct tinyco_t co;
 struct tinyco_context_t c1, c2;
-char stack1[4096];
-char stack2[4096];
-char stack3[4096];
+char stack1[32*1024];
+char stack2[32*1024];
+char stack3[32*1024];
 
 void funcA(void *p)
 {
