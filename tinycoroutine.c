@@ -48,16 +48,23 @@ struct tinyco_spawn_data_t
 	struct tinyco_t *context;
 	tinyco_func_t entry;
 	void *param;
+	struct tinyco_context_list_t *context_list;
+	struct tinyco_context_t ret_context;
 };
 
 static void tinyco_spawn_func(struct tinyco_spawn_data_t *data)
 {
+	// save a copy of tinyco_spawn_data_t to stack variables
 	struct tinyco_t *context = data->context;
 	tinyco_func_t entry = data->entry;
 	void *param = data->param;
 
-	context->release(data);
+	// return to the tinyco_spawn() function
+	tinyco_context_swap(&data->ret_context,&data->context_list->context);
 
+	// data is invalid at this point
+
+	// enter the function
 	entry(param);
 
 	tinyco_exit(context,0);
@@ -66,13 +73,17 @@ static void tinyco_spawn_func(struct tinyco_spawn_data_t *data)
 void tinyco_spawn(struct tinyco_t *context,tinyco_func_t entry,void *param,void *stack,size_t stack_size)
 {
 	struct tinyco_context_list_t *ctx = context->alloc(sizeof(struct tinyco_context_list_t));
-	struct tinyco_spawn_data_t *data = context->alloc(sizeof(struct tinyco_spawn_data_t));
+	struct tinyco_spawn_data_t data;
 
-	data->context = context;
-	data->entry = entry;
-	data->param = param;
+	data.context = context;
+	data.entry = entry;
+	data.param = param;
+	data.context_list = ctx;
 
-	tinyco_context_create(&ctx->context,(tinyco_func_t)tinyco_spawn_func,data,stack,stack_size,NULL);
+	tinyco_context_create(&ctx->context,(tinyco_func_t)tinyco_spawn_func,&data,stack,stack_size,NULL);
+
+	// swap into the new context temporarily so we can save tinyco_spawn_data_t into stack variables
+	tinyco_context_swap(&ctx->context, &data.ret_context);
 
 	// add to list
 	ctx->next = &context->context_root;
