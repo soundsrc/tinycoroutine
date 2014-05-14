@@ -196,10 +196,12 @@ static int tinyco_get_stack_dir()
  * This is kinda a ridiculous hack.. but on x64 on first 4 params passed by registers.
  * The rest passed on stack. We can use the jmp_buf hack on msvc x64 to call the entry function.
  */
+#if defined(_MSC_VER) && defined(_M_IX86)
 static DEF_FUNC_NO_INLINE(void, tinyco_msvc_x64_entry, (__int64 dummy1,__int64 dummy2,__int64 dummy3,__int64 dummy4,void (*entry)(struct tinyco_context_t *),struct tinyco_context_t *coro) )
 {
 	entry(coro);
 }
+#endif
 
 /*
  * This is the non-portable bit which requires a bit of ASM.
