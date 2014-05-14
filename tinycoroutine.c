@@ -186,9 +186,11 @@ static void tinyco_swap_stack_and_call(void *stack,void (*entry)(struct tinyco_c
 {
 #if defined(_MSC_VER) && defined(_M_IX86)
 	__asm {
-		mov esp, stack
+		mov ecx, stack
+		lea esp, [ecx - 4]
 		and esp, -16
-		push coro
+		mov eax, coro
+		mov [esp], eax
 		call entry
 	}
 #elif defined(__GNUC__) && defined(__x86_64__)
