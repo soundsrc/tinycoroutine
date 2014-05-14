@@ -34,6 +34,19 @@
 #define longjmp _longjmp
 #endif
 
+#if defined(_MSC_VER) && defined(_M_X64)
+static int tinyco_msvc_x64_setjmp(jmp_buf jb)
+{
+	int ret = setjmp(jb);
+	if(ret == 0) {
+		((_JUMP_BUFFER *)jb)->Frame = 0; // don't want seh handling
+	}
+	return ret;
+}
+
+#define setjmp(jb) tinyco_msvc_x64_setjmp(jb)
+#endif
+
 void tinyco_init(struct tinyco_t *context,tinyco_alloc_func_t alloc,tinyco_free_func_t release)
 {
 	context->context_count = 0;
@@ -133,7 +146,9 @@ DEF_FUNC_NO_INLINE(static void,tinyco_entry,(struct tinyco_context_t *coro))
 	memcpy(ret,coro->ctxt,sizeof(jmp_buf));
 
 	/* Save the entry context, return to caller */
-	if(setjmp(coro->ctxt) == 0) longjmp(ret,1);
+	if(setjmp(coro->ctxt) == 0) {
+		longjmp(ret,1);
+	}
 
 	coro->entry(coro->param);
 
@@ -178,6 +193,15 @@ static int tinyco_get_stack_dir()
 }
 
 /*
+ * This is kinda a ridiculous hack.. but on x64 on first 4 params passed by registers.
+ * The rest passed on stack. We can use the jmp_buf hack on msvc x64 to call the entry function.
+ */
+static DEF_FUNC_NO_INLINE(void, tinyco_msvc_x64_entry, (__int64 dummy1,__int64 dummy2,__int64 dummy3,__int64 dummy4,void (*entry)(struct tinyco_context_t *),struct tinyco_context_t *coro) )
+{
+	entry(coro);
+}
+
+/*
  * This is the non-portable bit which requires a bit of ASM.
  * The stack pointer should be replaced with the passed stack pointer and the entry function should be
  * called with the new stack in use.
@@ -192,6 +216,21 @@ static void tinyco_swap_stack_and_call(void *stack,void (*entry)(struct tinyco_c
 		mov eax, coro
 		mov [esp], eax
 		call entry
+	}
+#elif defined(_MSC_VER) && defined(_M_X64)
+	jmp_buf buf;
+	_JUMP_BUFFER *jb;
+
+	/* on x86 windows, we can't use inline asm, so rely on
+	 * hacking the jmp_buf to exchange the stack and call our entry func */
+	if(setjmp(buf) == 0) {
+		jb = (_JUMP_BUFFER *)buf;
+		jb->Rsp = (((unsigned __int64)stack - 6 * sizeof(__int64)) & ~0xFLL) - sizeof(__int64); // align 16-byte, sub 8 for return addr
+		*((unsigned __int64 *)jb->Rsp) = 0xCCCCCCCCCCCCCCCCLL; // return address, but we'll never reach this
+		*((unsigned __int64 *)jb->Rsp + 5) = (unsigned __int64)entry; // param 5
+		*((unsigned __int64 *)jb->Rsp + 6) = (unsigned __int64)coro; // param 6
+		jb->Rip = (unsigned __int64)tinyco_msvc_x64_entry;
+		longjmp(buf,1);
 	}
 #elif defined(__GNUC__) && defined(__x86_64__)
 	/* x64 GNU C */
