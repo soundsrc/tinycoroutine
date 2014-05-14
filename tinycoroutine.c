@@ -231,6 +231,8 @@ static void tinyco_swap_stack_and_call(void *stack,void (*entry)(struct tinyco_c
 	#error Not supported for your compiler / platform.
 
 	static struct tinycoroutine_t *c;
+	jmp_buf buf;
+
 	c = coro;
 
 	/*
@@ -241,9 +243,8 @@ static void tinyco_swap_stack_and_call(void *stack,void (*entry)(struct tinyco_c
 	 */
 
 	// swap the stack pointer
-	jmp_buf buf;
 	if(setjmp(buf) == 0) {
-		((size_t *)buf)[tinyco_get_stack_ptr_in_jmp_buf()] = stack;
+		((size_t *)buf)[tinyco_get_stack_ptr_in_jmp_buf(&buf)] = stack;
 		longjmp(buf,1);
 	}
 
