@@ -34,7 +34,7 @@
 #define longjmp _longjmp
 #endif
 
-#if defined(_MSC_VER) && defined(_M_X64)
+#if defined(_MSC_VER) && defined(_WIN64)
 static int tinyco_msvc_x64_setjmp(jmp_buf jb)
 {
 	int ret = setjmp(jb);
@@ -196,7 +196,7 @@ static int tinyco_get_stack_dir()
  * This is kinda a ridiculous hack.. but on x64 on first 4 params passed by registers.
  * The rest passed on stack. We can use the jmp_buf hack on msvc x64 to call the entry function.
  */
-#if defined(_MSC_VER) && defined(_M_IX86)
+#if defined(_MSC_VER) && defined(_WIN64)
 static DEF_FUNC_NO_INLINE(void, tinyco_msvc_x64_entry, (__int64 dummy1,__int64 dummy2,__int64 dummy3,__int64 dummy4,void (*entry)(struct tinyco_context_t *),struct tinyco_context_t *coro) )
 {
 	entry(coro);
@@ -210,7 +210,7 @@ static DEF_FUNC_NO_INLINE(void, tinyco_msvc_x64_entry, (__int64 dummy1,__int64 d
  */
 static void tinyco_swap_stack_and_call(void *stack,void (*entry)(struct tinyco_context_t *),struct tinyco_context_t *coro)
 {
-#if defined(_MSC_VER) && defined(_M_IX86)
+#if defined(_MSC_VER) && defined(_WIN32) && !defined(_WIN64)
 	__asm {
 		mov ecx, stack
 		lea esp, [ecx - 4]
@@ -219,7 +219,7 @@ static void tinyco_swap_stack_and_call(void *stack,void (*entry)(struct tinyco_c
 		mov [esp], eax
 		call entry
 	}
-#elif defined(_MSC_VER) && defined(_M_X64)
+#elif defined(_MSC_VER) && defined(_WIN64)
 	jmp_buf buf;
 	_JUMP_BUFFER *jb;
 
