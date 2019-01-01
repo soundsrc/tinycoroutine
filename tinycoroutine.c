@@ -35,16 +35,9 @@
 #endif
 
 #if defined(_MSC_VER) && defined(_WIN64)
-static int tinyco_msvc_x64_setjmp(jmp_buf jb)
-{
-	int ret = setjmp(jb);
-	if(ret == 0) {
-		((_JUMP_BUFFER *)jb)->Frame = 0; // don't want seh handling
-	}
-	return ret;
-}
-
-#define setjmp(jb) tinyco_msvc_x64_setjmp(jb)
+#define JMPBUF_DISABLE_SEH(jb) ((_JUMP_BUFFER *)jb)->Frame = 0
+#else
+#define JMPBUF_DISABLE_SEH(jb)
 #endif
 
 void tinyco_init(struct tinyco_t *context,tinyco_alloc_func_t alloc,tinyco_free_func_t release)
@@ -140,19 +133,20 @@ void tinyco_exit(struct tinyco_t *context,int exitCode)
 	tinyco_context_swap(&next->context,NULL);
 }
 
-DEF_FUNC_NO_INLINE(static void,tinyco_entry,(struct tinyco_context_t *coro))
+DEF_FUNC_NO_INLINE(static void, tinyco_entry, (struct tinyco_context_t * volatile coro))
 {
-	jmp_buf ret;
-	memcpy(ret,coro->ctxt,sizeof(jmp_buf));
+	volatile jmp_buf ret;
+	memcpy(ret, coro->ctxt, sizeof(jmp_buf));
 
 	/* Save the entry context, return to caller */
-	if(setjmp(coro->ctxt) == 0) {
-		longjmp(ret,1);
+	if (setjmp(coro->ctxt) == 0) {
+		JMPBUF_DISABLE_SEH(coro->ctxt);
+		longjmp(ret, 1);
 	}
 
 	coro->entry(coro->param);
 
-	if(coro->ret) tinyco_context_swap(coro->ret, NULL);
+	if (coro->ret) tinyco_context_swap(coro->ret, NULL);
 
 	exit(1);
 }
@@ -201,6 +195,7 @@ static DEF_FUNC_NO_INLINE(void, tinyco_msvc_x64_entry, (__int64 dummy1,__int64 d
 {
 	entry(coro);
 }
+
 #endif
 
 /*
@@ -227,6 +222,7 @@ static void tinyco_swap_stack_and_call(void *stack,void (*entry)(struct tinyco_c
 	 * hacking the jmp_buf to exchange the stack and call our entry func */
 	if(setjmp(buf) == 0) {
 		jb = (_JUMP_BUFFER *)buf;
+		JMPBUF_DISABLE_SEH(buf);
 		jb->Rsp = (((unsigned __int64)stack - 6 * sizeof(__int64)) & ~0xFLL) - sizeof(__int64); // align 16-byte, sub 8 for return addr
 		*((unsigned __int64 *)jb->Rsp) = 0xCCCCCCCCCCCCCCCCLL; // return address, but we'll never reach this
 		*((unsigned __int64 *)jb->Rsp + 5) = (unsigned __int64)entry; // param 5
@@ -299,6 +295,7 @@ static void tinyco_swap_stack_and_call(void *stack,void (*entry)(struct tinyco_c
 	assert(0 && "Should not return here.");
 }
 
+
 void tinyco_context_create(struct tinyco_context_t *coro,tinyco_func_t entry,void *param,void *stack,size_t stack_size,struct tinyco_context_t *ret)
 {
 	coro->entry = entry;
@@ -306,6 +303,7 @@ void tinyco_context_create(struct tinyco_context_t *coro,tinyco_func_t entry,voi
 	coro->ret = ret;
 
 	if(setjmp(coro->ctxt) == 0) {
+		JMPBUF_DISABLE_SEH(coro->ctxt);
 		char *stackBase = tinyco_get_stack_dir() < 0 ? (char *)stack + stack_size : (char *)stack;
 		tinyco_swap_stack_and_call(stackBase,tinyco_entry,coro);
 		/* not expected to return here */
@@ -315,13 +313,15 @@ void tinyco_context_create(struct tinyco_context_t *coro,tinyco_func_t entry,voi
 void tinyco_context_get(struct tinyco_context_t *coro)
 {
 	if(setjmp(coro->ctxt) == 0) {
+		JMPBUF_DISABLE_SEH(coro->ctxt);
 		coro->entry = NULL;
 	}
 }
 
-void tinyco_context_swap(struct tinyco_context_t *coro,struct tinyco_context_t *prev)
+void tinyco_context_swap(struct tinyco_context_t * volatile coro, struct tinyco_context_t * volatile prev)
 {
 	if(!prev || setjmp(prev->ctxt) == 0) {
+		if (prev) JMPBUF_DISABLE_SEH(prev->ctxt);
 		longjmp(coro->ctxt,1);
 	}
 }

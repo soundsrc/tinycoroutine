@@ -134,6 +134,6 @@ void tinyco_context_get(struct tinyco_context_t *coro);
  * @param coro Coroutine context to switch to
  * @param prev Current coroutine context is saved. This parameter can be NULL.
  */
-void tinyco_context_swap(struct tinyco_context_t *coro,struct tinyco_context_t *prev);
+void tinyco_context_swap(struct tinyco_context_t * volatile coro, struct tinyco_context_t * volatile prev);
 
 #endif
