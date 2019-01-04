@@ -37,7 +37,7 @@
 #if defined(_MSC_VER) && defined(_WIN64)
 #define JMPBUF_DISABLE_SEH(jb) ((_JUMP_BUFFER *)jb)->Frame = 0
 #else
-#define JMPBUF_DISABLE_SEH(jb)
+#define JMPBUF_DISABLE_SEH(jb) ((void)0)
 #endif
 
 void tinyco_init(struct tinyco_t *context,tinyco_alloc_func_t alloc,tinyco_free_func_t release)
@@ -135,7 +135,7 @@ void tinyco_exit(struct tinyco_t *context,int exitCode)
 
 DEF_FUNC_NO_INLINE(static void, tinyco_entry, (struct tinyco_context_t * volatile coro))
 {
-	volatile jmp_buf ret;
+	jmp_buf ret;
 	memcpy(ret, coro->ctxt, sizeof(jmp_buf));
 
 	/* Save the entry context, return to caller */
@@ -241,7 +241,7 @@ static void tinyco_swap_stack_and_call(void *stack,void (*entry)(struct tinyco_c
 		  "D" (coro),        /* load coro into edi for the first parameter to pass */
 		  "r" (entry),
 		  "c" (coro)         /* make windows happy */
-		: "rcx", "rdi" );
+		: );
 #elif defined(__GNUC__) && defined(__i386__)
 	__asm__ __volatile__ (
 		"leal -4(%0), %%esp\n" /* replace stack pointer */
