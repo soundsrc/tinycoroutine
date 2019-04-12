@@ -22,6 +22,12 @@
 #include <string.h>
 #include <stddef.h>
 
+#if defined(_MSC_VER) && defined(_WIN64)
+#define JMPBUF_DISABLE_SEH(jb) ((_JUMP_BUFFER *)jb)->Frame = 0
+#else
+#define JMPBUF_DISABLE_SEH(jb) ((void)0)
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -131,7 +137,14 @@ void tinyco_context_create(struct tinyco_context_t *coro,tinyco_func_t entry,voi
  *
  * @param coro Address of an uninitialized coroutine_t structure.
  */
-void tinyco_context_get(struct tinyco_context_t *coro);
+// void tinyco_context_get(struct tinyco_context_t *coro);
+#define tinyco_context_get(coro) \
+	do { \
+		if(setjmp((coro)->ctxt) == 0) { \
+			JMPBUF_DISABLE_SEH((coro)->ctxt); \
+			(coro)->entry = NULL; \
+		} \
+	} while (0)
 
 /**
  * Saves the current coroutine context and switches to the passed coroutine.

@@ -34,12 +34,6 @@
 #define longjmp _longjmp
 #endif
 
-#if defined(_MSC_VER) && defined(_WIN64)
-#define JMPBUF_DISABLE_SEH(jb) ((_JUMP_BUFFER *)jb)->Frame = 0
-#else
-#define JMPBUF_DISABLE_SEH(jb) ((void)0)
-#endif
-
 void tinyco_init(struct tinyco_t *context,tinyco_alloc_func_t alloc,tinyco_free_func_t release)
 {
 	context->context_count = 0;
@@ -307,14 +301,6 @@ void tinyco_context_create(struct tinyco_context_t *coro,tinyco_func_t entry,voi
 		char *stackBase = tinyco_get_stack_dir() < 0 ? (char *)stack + stack_size : (char *)stack;
 		tinyco_swap_stack_and_call(stackBase,tinyco_entry,coro);
 		/* not expected to return here */
-	}
-}
-
-void tinyco_context_get(struct tinyco_context_t *coro)
-{
-	if(setjmp(coro->ctxt) == 0) {
-		JMPBUF_DISABLE_SEH(coro->ctxt);
-		coro->entry = NULL;
 	}
 }
 
