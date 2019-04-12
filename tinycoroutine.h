@@ -22,6 +22,10 @@
 #include <string.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void (*tinyco_func_t)(void *);
 typedef void *(*tinyco_alloc_func_t)(size_t);
 typedef void (*tinyco_free_func_t)(void *);
@@ -135,5 +139,9 @@ void tinyco_context_get(struct tinyco_context_t *coro);
  * @param prev Current coroutine context is saved. This parameter can be NULL.
  */
 void tinyco_context_swap(struct tinyco_context_t * volatile coro, struct tinyco_context_t * volatile prev);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
