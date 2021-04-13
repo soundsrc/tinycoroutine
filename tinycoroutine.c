@@ -13,6 +13,14 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
+
+// On gcc Release, fortify is enabled, and longjmp checks the returning stack is
+// valid by comparing the return stack address. But based on how coroutine works
+// with alternate stacks, this check incorrectly gets tripped. Disable fortify
+// for this file.
+
+#undef _FORTIFY_SOURCE
+
 #include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
